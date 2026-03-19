@@ -1,0 +1,16 @@
+# credentials
+src/main/resources/google-sheets-credentials.json
+
+# (если хочешь — более общий, но безопаснее так)
+# *.json  ❌ НЕ РЕКОМЕНДУЕТСЯ
+
+target/
+build/
+
+### IDE ###
+.idea
+.vscode
+*.iml
+
+### OS ###
+.DS_Store
