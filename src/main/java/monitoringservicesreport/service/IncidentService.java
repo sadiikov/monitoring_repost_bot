@@ -1,27 +1,32 @@
 package monitoringservicesreport.service;
 
 import monitoringservicesreport.entity.Incident;
-import monitoringservicesreport.repository.IncidentRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.*;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Service
 public class IncidentService {
 
-    private final IncidentRepository repo;
     private final GoogleSheetsService sheetsService;
 
-    public IncidentService(IncidentRepository repo, GoogleSheetsService sheetsService) {
-        this.repo = repo;
+    private final Map<String, Incident> activeIncidents = new ConcurrentHashMap<>();
+    private final List<Incident> history = new CopyOnWriteArrayList<>();
+
+    public IncidentService(GoogleSheetsService sheetsService) {
         this.sheetsService = sheetsService;
     }
 
-    @Transactional
     public Incident createDown(String providerName, LocalDateTime time, String sourceMessage) {
+
         Incident inc = new Incident();
         inc.setProviderName(providerName);
         inc.setStartTime(time);
@@ -29,7 +34,7 @@ public class IncidentService {
         inc.setSourceMessage(sourceMessage);
         inc.setCreatedAt(LocalDateTime.now());
 
-        Incident saved = repo.save(inc);
+        activeIncidents.put(providerName, inc);
 
         try {
             sheetsService.appendRow(Arrays.asList(
@@ -42,42 +47,49 @@ public class IncidentService {
             e.printStackTrace();
         }
 
-        return saved;
+        return inc;
     }
 
-    @Transactional
     public Incident closeIncident(String providerName, LocalDateTime finishTime) {
-        var openList = repo.findByProviderNameAndStatusOrderByStartTimeDesc(providerName, "ACTIVE");
-        if (openList.isEmpty()) return null;
 
-        Incident inc = openList.get(0);
+        Incident inc = activeIncidents.remove(providerName);
+        if (inc == null) return null;
+
         inc.setFinishTime(finishTime);
         inc.setStatus("CLOSED");
 
-        // Проверяем, пересекла ли авария полночь
         LocalDateTime start = inc.getStartTime();
         long totalMinutes = Duration.between(start, finishTime).toMinutes();
 
         try {
             if (start.toLocalDate().equals(finishTime.toLocalDate())) {
-                // Один день
-                sheetsService.updateRow(inc.getProviderName(),
+
+                sheetsService.updateRow(
+                        inc.getProviderName(),
                         finishTime.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")),
                         totalMinutes + " мин",
-                        start.toLocalDate());
-            } else {
-                // Разбиваем на 2 записи
-                LocalDateTime midnight = start.toLocalDate().atTime(LocalTime.MAX);
-                long firstPart = Duration.between(start, midnight).toMinutes();
-                long secondPart = Duration.between(finishTime.toLocalDate().atStartOfDay(), finishTime).toMinutes();
+                        start.toLocalDate()
+                );
 
-                // Первая часть (до полуночи)
-                sheetsService.updateRow(inc.getProviderName(),
+            } else {
+
+                LocalDateTime midnight = start.toLocalDate().atTime(LocalTime.MAX);
+
+                long firstPart = Duration.between(start, midnight).toMinutes();
+                long secondPart = Duration.between(
+                        finishTime.toLocalDate().atStartOfDay(),
+                        finishTime
+                ).toMinutes();
+
+                // до полуночи
+                sheetsService.updateRow(
+                        inc.getProviderName(),
                         midnight.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")),
                         firstPart + " мин",
-                        start.toLocalDate());
+                        start.toLocalDate()
+                );
 
-                // Вторая часть (после полуночи)
+                // после полуночи
                 sheetsService.appendRow(Arrays.asList(
                         inc.getProviderName(),
                         finishTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
@@ -86,12 +98,16 @@ public class IncidentService {
                         secondPart + " мин"
                 ), finishTime.toLocalDate());
             }
+
         } catch (Exception e) {
             System.err.println("Ошибка при обновлении Google Sheets:");
             e.printStackTrace();
         }
 
         inc.setDowntimeMinutes((int) totalMinutes);
-        return repo.save(inc);
+
+        history.add(inc);
+
+        return inc;
     }
 }
