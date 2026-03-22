@@ -1,6 +1,6 @@
 # credentials
 src/main/resources/google-sheets-credentials.json
-
+src/main/resources/application.properties
 # (если хочешь — более общий, но безопаснее так)
 # *.json  ❌ НЕ РЕКОМЕНДУЕТСЯ
 
