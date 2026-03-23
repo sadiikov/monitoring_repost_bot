@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.GeneralSecurityException;
 import java.util.List;
 
@@ -18,13 +19,23 @@ public class GoogleSheetsConfig {
 
     private static final String APPLICATION_NAME = "Monitoring Services Report";
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
-    private static final String CREDENTIALS_FILE_PATH = "src/main/resources/google-sheets-credentials.json";
+    private static final String LOCAL_CREDENTIALS = "src/main/resources/google-sheets-credentials.json";
 
     @Bean
     public Sheets sheetsService() throws GeneralSecurityException, IOException {
         var httpTransport = GoogleNetHttpTransport.newTrustedTransport();
 
-        GoogleCredential credential = GoogleCredential.fromStream(new FileInputStream(CREDENTIALS_FILE_PATH))
+        String path = System.getenv("GOOGLE_CREDS_PATH");
+
+        InputStream credentialsStream;
+
+        if(path != null && !path.isBlank()) {
+            credentialsStream = new FileInputStream(path);
+        }else{
+            credentialsStream = new FileInputStream(LOCAL_CREDENTIALS);
+        }
+
+        GoogleCredential credential = GoogleCredential.fromStream(credentialsStream)
                 .createScoped(List.of("https://www.googleapis.com/auth/spreadsheets"));
 
         return new Sheets.Builder(httpTransport, JSON_FACTORY, credential)
