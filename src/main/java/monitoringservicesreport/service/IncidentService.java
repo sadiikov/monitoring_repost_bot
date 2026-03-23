@@ -5,7 +5,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
@@ -59,7 +58,8 @@ public class IncidentService {
         inc.setStatus("CLOSED");
 
         LocalDateTime start = inc.getStartTime();
-        long totalMinutes = Duration.between(start, finishTime).toMinutes();
+        Duration duration = Duration.between(start, finishTime);
+        double value = duration.toMinutes() / 1440.0;
 
         try {
             if (start.toLocalDate().equals(finishTime.toLocalDate())) {
@@ -67,25 +67,28 @@ public class IncidentService {
                 sheetsService.updateRow(
                         inc.getProviderName(),
                         finishTime.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")),
-                        totalMinutes + " мин",
+                        value,
                         start.toLocalDate()
                 );
 
             } else {
 
-                LocalDateTime midnight = start.toLocalDate().atTime(LocalTime.MAX);
+                LocalDateTime midnight = start.toLocalDate().plusDays(1).atStartOfDay();
 
-                long firstPart = Duration.between(start, midnight).toMinutes();
-                long secondPart = Duration.between(
+                Duration firstDuration = Duration.between(start, midnight);
+                double firstValue = firstDuration.toMinutes() / 1440.0;
+
+                Duration secondDuration = Duration.between(
                         finishTime.toLocalDate().atStartOfDay(),
                         finishTime
-                ).toMinutes();
+                );
+                double secondValue = secondDuration.toMinutes() / 1440.0;
 
                 // до полуночи
                 sheetsService.updateRow(
                         inc.getProviderName(),
                         midnight.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")),
-                        firstPart + " мин",
+                        firstValue,
                         start.toLocalDate()
                 );
 
@@ -95,7 +98,7 @@ public class IncidentService {
                         finishTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
                         "00:00",
                         finishTime.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")),
-                        secondPart + " мин"
+                        secondValue
                 ), finishTime.toLocalDate());
             }
 
@@ -104,7 +107,7 @@ public class IncidentService {
             e.printStackTrace();
         }
 
-        inc.setDowntimeMinutes((int) totalMinutes);
+        inc.setDowntimeMinutes(value);
 
         history.add(inc);
 

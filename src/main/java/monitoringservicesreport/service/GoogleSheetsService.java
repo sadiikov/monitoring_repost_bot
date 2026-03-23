@@ -8,7 +8,10 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 @Service
 public class GoogleSheetsService {
@@ -27,21 +30,44 @@ public class GoogleSheetsService {
 
     private void ensureSheetExists(String sheetName) throws IOException {
         Spreadsheet spreadsheet = sheets.spreadsheets().get(spreadsheetId).execute();
+
         boolean exists = spreadsheet.getSheets().stream()
                 .map(Sheet::getProperties)
                 .anyMatch(p -> p.getTitle().equals(sheetName));
 
         if (!exists) {
+            int sheetId = (int) (Math.random() * 1_000_000);
+
             AddSheetRequest addSheetRequest = new AddSheetRequest()
-                    .setProperties(new SheetProperties().setTitle(sheetName));
-            Request request = new Request().setAddSheet(addSheetRequest);
+                    .setProperties(new SheetProperties()
+                            .setTitle(sheetName)
+                            .setSheetId(sheetId));
+
+            RepeatCellRequest formatColumnE = new RepeatCellRequest()
+                    .setRange(new GridRange()
+                            .setSheetId(sheetId)
+                            .setStartRowIndex(1)
+                            .setStartColumnIndex(4)
+                            .setEndColumnIndex(5))
+                    .setCell(new CellData()
+                            .setUserEnteredFormat(new CellFormat()
+                                    .setNumberFormat(new NumberFormat()
+                                            .setType("TIME")
+                                            .setPattern("hh:mm"))))
+                    .setFields("userEnteredFormat.numberFormat");
+
             BatchUpdateSpreadsheetRequest batchRequest = new BatchUpdateSpreadsheetRequest()
-                    .setRequests(Collections.singletonList(request));
+                    .setRequests(List.of(
+                            new Request().setAddSheet(addSheetRequest),
+                            new Request().setRepeatCell(formatColumnE)
+                    ));
+
             sheets.spreadsheets().batchUpdate(spreadsheetId, batchRequest).execute();
 
             ValueRange headers = new ValueRange().setValues(List.of(List.of(
                     "Наименование провайдера", "Дата", "Старт", "Финиш", "Время простоя"
             )));
+
             sheets.spreadsheets().values()
                     .append(spreadsheetId, sheetName + "!A:E", headers)
                     .setValueInputOption("RAW")
@@ -85,7 +111,7 @@ public class GoogleSheetsService {
     }
 
 
-    public void updateRow(String providerName, String finish, String downtime, LocalDate date) throws IOException {
+    public void updateRow(String providerName, String finish, double downtime, LocalDate date) throws IOException {
         String sheetName = getSheetNameForDate(date);
         ensureSheetExists(sheetName);
 
