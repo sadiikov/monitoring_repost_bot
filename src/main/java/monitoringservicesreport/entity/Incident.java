@@ -18,7 +18,7 @@ public class Incident {
 
     private LocalDateTime finishTime;
 
-    private Integer downtimeMinutes;
+    private double downtimeMinutes;
 
     private String status;
 

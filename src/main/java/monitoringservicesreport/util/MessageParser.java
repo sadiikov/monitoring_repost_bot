@@ -2,6 +2,7 @@ package monitoringservicesreport.util;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,6 +20,19 @@ public class MessageParser {
     private static final Pattern BANK_PATTERN =
             Pattern.compile("банк-клиента\\s+'(.+?)'\\s+изменен на\\s+(АКТИВНЫЙ|НЕАКТИВНЫЙ)",
                     Pattern.CASE_INSENSITIVE);
+    private static final Map<String, String> BANK_MAP = Map.ofEntries(
+            Map.entry("ТРАСТБАНК", "Банк-клиент TrastBank"),
+            Map.entry("МИКРОКРЕДИТБАНК", "Банк-клиент MikrokreditBank"),
+            Map.entry("HAYOT BANK", "Банк-клиент HayotBank"),
+            Map.entry("ИПАК ЙУЛИ", "Банк-клиент IpakYuliBank"),
+            Map.entry("ХАМКОРБАНК", "Банк-клиент HamkorBank"),
+            Map.entry("ИНФИНБАНК", "Банк-клиент InfinBank"),
+            Map.entry("ДАВР БАНК", "Банк-клиент DavrBank"),
+            Map.entry("УНИВЕРСАЛ БАНК", "Банк-клиент UniversalBank"),
+            Map.entry("КАПИТАЛБАНК", "Банк-клиент KapitalBank"),
+            Map.entry("АГРОБАНК", "Банк-клиент AgroBank"),
+            Map.entry("АЛОКАБАНК", "Банк-клиент AloqaBank")
+    );
 
     // 4. Дата + время
     private static final Pattern DATE_TIME_PATTERN =
@@ -60,7 +74,10 @@ public class MessageParser {
         Matcher bankMatcher = BANK_PATTERN.matcher(text);
         if (bankMatcher.find()) {
             ParsedMessage pm = new ParsedMessage();
-            pm.providerName = bankMatcher.group(1).trim();
+
+            String rawProvider = bankMatcher.group(1);
+            pm.providerName = normalizeProvider(rawProvider);
+
             pm.providerId = null;
 
             String status = bankMatcher.group(2).toUpperCase();
@@ -142,5 +159,17 @@ public class MessageParser {
                     ", dateTime=" + dateTime +
                     '}';
         }
+    }
+
+    private static String normalizeProvider(String rawName) {
+        String upper = rawName.toUpperCase();
+
+        for (Map.Entry<String, String> entry : BANK_MAP.entrySet()) {
+            if (upper.contains(entry.getKey())) {
+                return entry.getValue();
+            }
+        }
+
+        return rawName;
     }
 }
