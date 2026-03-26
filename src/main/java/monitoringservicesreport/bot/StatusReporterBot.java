@@ -1,5 +1,7 @@
 package monitoringservicesreport.bot;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import monitoringservicesreport.config.BotConfig;
 import monitoringservicesreport.service.IncidentService;
 import monitoringservicesreport.util.MessageParser;
@@ -14,15 +16,12 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 @Component
+@AllArgsConstructor
+@Getter
 public class StatusReporterBot extends TelegramLongPollingBot {
     private final Logger log = LoggerFactory.getLogger(StatusReporterBot.class);
     private final BotConfig cfg;
     private final IncidentService incidentService;
-
-    public StatusReporterBot(BotConfig cfg, IncidentService incidentService) {
-        this.cfg = cfg;
-        this.incidentService = incidentService;
-    }
 
     @Override
     public String getBotUsername() { return cfg.botUsername; }
@@ -49,7 +48,9 @@ public class StatusReporterBot extends TelegramLongPollingBot {
 
             // Время публикации поста (по таймзоне из настроек)
             Instant instant = Instant.ofEpochSecond(msg.getDate());
-            LocalDateTime eventTime = LocalDateTime.ofInstant(instant, ZoneId.of(cfg.timezone));
+            LocalDateTime eventTime = LocalDateTime.ofInstant(
+                    instant, ZoneId.of(cfg.timezone)
+            ).withSecond(0).withNano(0);
 
             if (parsed.down) {
                 incidentService.createDown(parsed.providerName, eventTime, text);

@@ -12,4 +12,3 @@ public class AppConfig {
     private String spreadsheetId;
     private String timezone;
 }
-
