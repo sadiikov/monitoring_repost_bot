@@ -93,7 +93,7 @@ public class GoogleSheetsService {
                 List<Object> row = rows.get(i);
                 boolean empty = row.stream().allMatch(v -> v.toString().isBlank());
                 if (empty) {
-                    nextRow = i + 1; // строки в API нумеруются с 1
+                    nextRow = i + 1;
                     break;
                 }
             }

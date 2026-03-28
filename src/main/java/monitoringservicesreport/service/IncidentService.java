@@ -39,7 +39,8 @@ public class IncidentService {
             sheetsService.appendRow(Arrays.asList(
                     providerName,
                     time.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")),
-                    time.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"))
+                    time.toLocalTime()
+                            .withSecond(0).withNano(0).format(DateTimeFormatter.ofPattern("HH:mm"))
             ), time.toLocalDate());
         } catch (Exception e) {
             System.err.println("Ошибка при записи в Google Sheets:");
